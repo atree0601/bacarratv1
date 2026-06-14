@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>百家樂預測系統 V6.4</title>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background:#1a1a1a; color:#eee; padding:15px; max-width:1300px; margin:auto; }
+    h1 { text-align:center; color:#f5c542; font-size:22px; margin-bottom:15px; }
+.main-wrap { display:flex; gap:15px; flex-wrap:wrap; }
+.left-panel { flex:1; min-width:320px; }
+.mid-panel { flex:1; min-width:300px; }
+.right-panel { flex:1; min-width:280px; }
+.card-input { margin:12px 0; }
+    label { display:block; margin-bottom:5px; color:#ccc; font-size:14px; }
+.input-row { display:flex; gap:8px; align-items:center; }
+    input { flex:1; padding:10px; font-size:18px; border-radius:6px; border:1px solid #444; background:#2a2a2a; color:#fff; box-sizing:border-box; }
+.point-show { width:40px; text-align:center; font-size:18px; color:#f5c542; }
+.btn-group { display:flex; gap:8px; margin-top:15px; flex-wrap:wrap; }
+    button { flex:1; padding:10px; font-size:15px; border:none; border-radius:6px; cursor:pointer; min-width:90px; }
+.calc { background:#f5c542; color:#000; font-weight:bold; }
+.reset { background:#444; color:#fff; }
+.undo { background:#7a3b3b; color:#fff; }
+.resetProfit { background:#2d4a7c; color:#fff; }
+.result { margin-top:20px; padding:15px; background:#2a2a2a; border-radius:6px; text-align:center; }
+.suggestion { font-size:22px; font-weight:bold; margin:8px 0; }
+.banker { color:#ff4d4f; }
+.player { color:#4d88ff; }
+.tie { color:#52c41a; }
+.wait { color:#aaa; }
+.profit-box { margin-top:20px; padding:15px; background:#2a2a2a; border-radius:6px; text-align:center; }
+.stats { font-size:13px; color:#888; margin-top:10px; display:flex; justify-content:space-around; }
+.road-wrap { display:flex; gap:15px; margin-top:15px; flex-wrap:wrap; }
+.road { flex:1; min-width:200px; }
+.road-title { font-size:14px; color:#aaa; margin-bottom:5px; }
+.grid { display:flex; flex-direction:column; flex-wrap:wrap; height:120px; gap:1px; align-content:flex-start; }
+.cell { width:18px; height:18px; border-radius:50%; border:1px solid #333; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:rgba(0,0,0,0.1); }
+.cell.B { background:#ff4d4f; }
+.cell.P { background:#4d88ff; }
+.cell.T { background:#52c41a; }
+.vote-detail { font-size:12px; color:#888; margin-top:8px; text-align:left; }
+.vote-row { display:flex; justify-content:space-between; margin:2px 0; }
+.rule-box { margin-top:15px; padding:10px; background:#2a2a2a; border-radius:6px; font-size:12px; color:#888; }
+.profit-display { font-size:18px; margin-top:8px; }
+.profit-pos { color:#52c41a; }
+.profit-neg { color:#ff4d4f; }
+.profit-zero { color:#aaa; }
+
+/* iOS 點擊修復 */
+[onclick], button {
+    cursor: pointer!important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    -webkit-touch-callout: none;
+}
+</style>
+</head>
+<body>
+<h1>百家樂預測系統 V6.4</h1>
+
+<div class="main-wrap">
+    <div class="left-panel">
+        <div class="card-input">
+            <label>閒家牌 1=A, 0=10JQK, 2-9=原數</label>
+            <div class="input-row">
+                <input id="playerCards" inputmode="numeric" enterkeyhint="done" placeholder="例: 159">
+                <span class="point-show" id="playerPoint">0</span>
+            </div>
+        </div>
+        <div class="card-input">
+            <label>莊家牌 1=A, 0=10JQK, 2-9=原數</label>
+            <div class="input-row">
+                <input id="bankerCards" inputmode="numeric" enterkeyhint="done" placeholder="例: 801">
+                <span class="point-show" id="bankerPoint">0</span>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="calc" onclick="calculate()">計算</button>
+            <button class="reset" onclick="resetAll()">重置牌靴</button>
+            <button class="undo" onclick="undoLast()">撤銷上一步</button>
+        </div>
+        <div class="btn-group">
+            <button class="resetProfit" onclick="resetProfit()">重製損益</button>
+        </div>
+        <div class="result">
+            <div style="font-size:14px;color:#aaa;">綜合推薦</div>
+            <div class="suggestion" id="recommendText">等待輸入</div>
+            <div id="recommendDetail" class="vote-detail"></div>
+            <div class="stats">
+                <span>流水數: <span id="runningCount">0</span></span>
+                <span>真數: <span id="trueCount">0.00</span></span>
+                <span>剩餘: <span id="remainDecks">8.00</span></span>
+            </div>
+        </div>
+        <div class="profit-box">
+            <div style="color:#f5c542;font-size:16px;margin-bottom:8px;">模擬損益</div>
+            <div class="profit-display" id="profitText">0 單位</div>
+            <div style="font-size:12px;color:#888;margin-top:8px;">下注次數: <span id="betCount">0</span></div>
+        </div>
+        <div class="rule-box">
+            權重：0+1,1+2,2+3,3+3,4+6,5-4,6-6,7-4,8-3,9-1<br>
+            <small>正數利閒，負數利莊。第一手不給建議。</small>
+        </div>
+    </div>
+
+    <div class="mid-panel">
+        <div class="profit-box">
+            <div style="color:#7ee787;font-size:18px;margin-bottom:8px;">Monte Carlo</div>
+            <div id="mcBanker">莊勝率：--</div>
+            <div id="mcPlayer">閒勝率：--</div>
+            <div id="mcTie">和局率：--</div>
+        </div>
+        <div class="profit-box" id="evBox">
+            <div style="color:#f5c542;font-size:18px;margin-bottom:8px;">EV分析</div>
+            <div id="evBanker">莊優勢：0%</div>
+            <div id="evPlayer">閒優勢：0%</div>
+            <div id="evConfidence">信心值：0%</div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="road-wrap">
+            <div class="road">
+                <div class="road-title">珠盤路</div>
+                <div class="grid" id="beadGrid"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let deckCount = {'A':32,'2':32,'3':32,'4':32,'5':32,'6':32,'7':32,'8':32,'9':32,'0':128};
+let history = [];
+let beadResults = [];
+let totalHands = 0;
+let mcStats = {B:0, P:0, T:0, total:0};
+
+let totalProfit = 0;
+let betHistory = [];
+let lastRecommendation = null;
+
+const COUNT_WEIGHT = {
+    '0': 1, 'A': 2, '2': 3, '3': 3, '4': 6,
+    '5': -4, '6': -6, '7': -4, '8': -3, '9': -1
+};
+
+function parseCardInput(input) {
+    input = input.toUpperCase().replace(/[^0-9]/g, '');
+    return input.split('').map(c => {
+        if (c === '1') return 'A';
+        if (c === '0') return '0';
+        return c;
+    }).filter(c => ['A','2','3','4','5','6','7','8','9','0'].includes(c));
+}
+
+function cardValue(card) {
+    if (card === 'A') return 1;
+    if (card === '0') return 0;
+    return parseInt(card, 10);
+}
+
+function handPoint(cards) {
+    return cards.reduce((sum, c) => sum + cardValue(c), 0) % 10;
+}
+
+function getTotalRemain() {
+    return Object.values(deckCount).reduce((a,b) => a+b, 0);
+}
+
+function getDecksRemain() {
+    return getTotalRemain() / 52;
+}
+
+function getRunningCount() {
+    let rc = 0;
+    for (let card in deckCount) {
+        const dealt = (card === '0'? 128 : 32) - deckCount[card];
+        rc += dealt * COUNT_WEIGHT[card];
+    }
+    return rc;
+}
+
+function getTrueCount() {
+    const rc = getRunningCount();
+    const decks = getDecksRemain();
+    return decks > 0? rc / decks : 0;
+}
+
+function getRecommendation() {
+    const tc = getTrueCount();
+    const tieRate = mcStats.total > 0? mcStats.T / mcStats.total : 0;
+    const decksUsed = 8 - getDecksRemain();
+
+    if (totalHands === 0) {
+        return {
+            side: null,
+            multi: 0,
+            text: '等待數據',
+            cls: 'wait',
+            detail: '<div class="vote-row"><span>首局不下注</span><span>收集數據中</span></div>'
+        };
+    }
+
+    const extremeTie = decksUsed > 2 && tieRate > 0.16 && Math.abs(tc) < 10;
+    if (extremeTie) {
+        return {
+            side: 'T',
+            multi: 1,
+            text: `建議：和局 ${(tieRate*100).toFixed(1)}%`,
+            cls: 'tie',
+            detail: `
+                <div class="vote-row"><span>和局率</span><span style="color:#52c41a">異常 ${(tieRate*100).toFixed(1)}%</span></div>
+                <div class="vote-row"><span>已用牌</span><span>${decksUsed.toFixed(1)}副</span></div>
+            `
+        };
+    }
+
+    let bScore = 0, pScore = 0;
+    let tcSide = null, mcSide = null, evSide = null, trendSide = null;
+    let tcText = '平', mcText = '平', evText = '平', trendText = '無';
+
+    if (tc <= -10) { bScore += 0.35; tcSide = 'B'; tcText = `強莊 TC${tc.toFixed(1)}`; }
+    else if (tc <= -5) { bScore += 0.25; tcSide = 'B'; tcText = `中莊 TC${tc.toFixed(1)}`; }
+    else if (tc <= -1) { bScore += 0.15; tcSide = 'B'; tcText = `弱莊 TC${tc.toFixed(1)}`; }
+    else if (tc >= 10) { pScore += 0.35; tcSide = 'P'; tcText = `強閒 TC+${tc.toFixed(1)}`; }
+    else if (tc >= 5) { pScore += 0.25; tcSide = 'P'; tcText = `中閒 TC+${tc.toFixed(1)}`; }
+    else if (tc >= 1) { pScore += 0.15; tcSide = 'P'; tcText = `弱閒 TC+${tc.toFixed(1)}`; }
+
+    if (mcStats.total > 100) {
+        const bRate = mcStats.B / mcStats.total;
+        const pRate = mcStats.P / mcStats.total;
+        const bEV = bRate * 0.95 - pRate;
+        const pEV = pRate - bRate;
+        if (bEV > 0.02) { bScore += 0.25; mcSide = 'B'; mcText = `MC莊 ${(bRate*100).toFixed(1)}%`; }
+        else if (bEV > 0.005) { bScore += 0.15; mcSide = 'B'; mcText = `MC莊 ${(bRate*100).toFixed(1)}%`; }
+        else if (pEV > 0.02) { pScore += 0.25; mcSide = 'P'; mcText = `MC閒 ${(pRate*100).toFixed(1)}%`; }
+        else if (pEV > 0.005) { pScore += 0.15; mcSide = 'P'; mcText = `MC閒 ${(pRate*100).toFixed(1)}%`; }
+        else { mcText = `${(bRate*100).toFixed(1)}%/${(pRate*100).toFixed(1)}%`; }
+    }
+
+    const ev = calculateSimpleEV();
+    if (ev.b > 1.5) { bScore += 0.25; evSide = 'B'; evText = `EV莊+${ev.b.toFixed(1)}%`; }
+    else if (ev.b > 0.5) { bScore += 0.15; evSide = 'B'; evText = `EV莊+${ev.b.toFixed(1)}%`; }
+    else if (ev.p > 1.5) { pScore += 0.25; evSide = 'P'; evText = `EV閒+${ev.p.toFixed(1)}%`; }
+    else if (ev.p > 0.5) { pScore += 0.15; evSide = 'P'; evText = `EV閒+${ev.p.toFixed(1)}%`; }
+
+    if (beadResults.length >= 4) {
+        const last4 = beadResults.slice(-4);
+        const bCount = last4.filter(r => r === 'B').length;
+        const pCount = last4.filter(r => r === 'P').length;
+        if (bCount >= 3) { bScore += 0.15; trendSide = 'B'; trendText = `莊${bCount}連`; }
+        else if (pCount >= 3) { pScore += 0.15; trendSide = 'P'; trendText = `閒${pCount}連`; }
+    }
+
+    const side = bScore >= pScore? 'B' : 'P';
+    const score = side === 'B'? bScore : pScore;
+    const scorePercent = score * 100;
+
+    let multi = 5;
+    let level = '還好';
+    if (scorePercent >= 70) { multi = 15; level = '很有信心'; }
+    else if (scorePercent >= 40) { multi = 10; level = '比較確定'; }
+
+    const detail = `
+        <div class="vote-row"><span>真數 TC 35%</span><span>${tcText} ${tcSide===side?'✓':''}</span></div>
+        <div class="vote-row"><span>蒙地卡羅 25%</span><span>${mcText} ${mcSide===side?'✓':''}</span></div>
+        <div class="vote-row"><span>EV優勢 25%</span><span>${evText} ${evSide===side?'✓':''}</span></div>
+        <div class="vote-row"><span>大路趨勢 15%</span><span>${trendText} ${trendSide===side?'✓':''}</span></div>
+        <div class="vote-row" style="border-top:1px solid #444;margin-top:4px;padding-top:4px;">
+            <span>綜合</span><span>${scorePercent.toFixed(0)}% - ${level}</span>
+        </div>
+    `;
+
+    return {
+        side: side,
+        multi: multi,
+        text: `${side === 'B'? '莊' : '閒'} ${multi}倍`,
+        cls: side === 'B'? 'banker' : 'player',
+        detail: detail
+    };
+}
+
+function mcBuildShoe() {
+    const shoe = [];
+    for (let k in deckCount) {
+        for (let i = 0; i < deckCount[k]; i++) {
+            shoe.push(k);
+        }
+    }
+    return shoe;
+}
+
+function mcDraw(shoe) {
+    return shoe.splice(Math.floor(Math.random() * shoe.length), 1)[0];
+}
+
+function mcPoint(cards) {
+    return cards.reduce((sum, c) => sum + cardValue(c), 0) % 10;
+}
+
+function mcBankerDraw(bp, p3) {
+    if (bp <= 2) return true;
+    if (bp === 3) return p3!== 8;
+    if (bp === 4) return p3 >= 2 && p3 <= 7;
+    if (bp === 5) return p3 >= 4 && p3 <= 7;
+    if (bp === 6) return p3 >= 6 && p3 <= 7;
+    return false;
+}
+
+function mcSimulateOne() {
+    const shoe = mcBuildShoe();
+    if (shoe.length < 6) return null;
+
+    const p = [mcDraw(shoe), mcDraw(shoe)];
+    const b = [mcDraw(shoe), mcDraw(shoe)];
+    let pp = mcPoint(p), bp = mcPoint(b);
+
+    if (pp < 8 && bp < 8) {
+        let p3 = null;
+        if (pp <= 5) {
+            p3 = cardValue(mcDraw(shoe));
+            p.push(p3);
+            pp = mcPoint(p);
+        }
+        if (p3 === null) {
+            if (bp <= 5) bp = mcPoint([...b, mcDraw(shoe)]);
+        } else {
+            if (mcBankerDraw(bp, p3)) bp = mcPoint([...b, mcDraw(shoe)]);
+        }
+    }
+
+    if (bp > pp) return 'B';
+    if (pp > bp) return 'P';
+    return 'T';
+}
+
+function runMonteCarlo() {
+    mcStats = {B:0, P:0, T:0, total:0};
+    const runs = 5000;
+    for (let i = 0; i < runs; i++) {
+        const r = mcSimulateOne();
+        if (r) mcStats[r]++;
+        mcStats.total++;
+    }
+
+    document.getElementById('mcBanker').innerText = `莊勝率：${(mcStats.B/mcStats.total*100).toFixed(2)}%`;
+    document.getElementById('mcPlayer').innerText = `閒勝率：${(mcStats.P/mcStats.total*100).toFixed(2)}%`;
+    document.getElementById('mcTie').innerText = `和局率：${(mcStats.T/mcStats.total*100).toFixed(2)}%`;
+}
+
+function calculateSimpleEV() {
+    if (mcStats.total < 100) return {b:0, p:0, t:0};
+    const b = mcStats.B / mcStats.total;
+    const p = mcStats.P / mcStats.total;
+    const evB = (b * 0.95 - p) * 100;
+    const evP = (p - b) * 100;
+    return {b: evB, p: evP};
+}
+
+function updateEV() {
+    const ev = calculateSimpleEV();
+    document.getElementById('evBanker').innerText = `莊優勢：${ev.b.toFixed(2)}%`;
+    document.getElementById('evPlayer').innerText = `閒優勢：${ev.p.toFixed(2)}%`;
+    const conf = Math.min(100, getTotalRemain() / 416 * 100);
+    document.getElementById('evConfidence').innerText = `信心值：${conf.toFixed(0)}%`;
+}
+
+function renderBeadRoad() {
+    const grid = document.getElementById('beadGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < beadResults.length; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell ' + beadResults[i];
+        grid.appendChild(cell);
+    }
+}
+
+function updateProfitDisplay() {
+    const profitEl = document.getElementById('profitText');
+    const countEl = document.getElementById('betCount');
+
+    profitEl.innerText = `${totalProfit > 0? '+' : ''}${totalProfit} 單位`;
+    profitEl.className = 'profit-display ' + (totalProfit > 0? 'profit-pos' : totalProfit < 0? 'profit-neg' : 'profit-zero');
+    countEl.innerText = betHistory.length;
+}
+
+function resetProfit() {
+    totalProfit = 0;
+    betHistory = [];
+    updateProfitDisplay();
+}
+
+function calculate() {
+    const pInput = document.getElementById('playerCards').value.trim();
+    const bInput = document.getElementById('bankerCards').value.trim();
+
+    if (!bInput ||!pInput) {
+        alert('請輸入莊閒牌');
+        return;
+    }
+
+    const pCards = parseCardInput(pInput);
+    const bCards = parseCardInput(bInput);
+
+    if (bCards.length < 2 || bCards.length > 3 || pCards.length < 2 || pCards.length > 3) {
+        alert('牌數錯誤，莊閒各需2-3張');
+        return;
+    }
+
+    const allCards = [...pCards,...bCards];
+    const backup = JSON.parse(JSON.stringify(deckCount));
+    const backupBead = [...beadResults];
+
+    for (let c of allCards) {
+        if (!deckCount.hasOwnProperty(c) || deckCount[c] <= 0) {
+            alert(`牌 ${c} 庫存不足`);
+            deckCount = backup;
+            return;
+        }
+        deckCount[c]--;
+    }
+
+    history.push({deckCount: backup, bead: backupBead, hands: totalHands, profit: totalProfit, bets: [...betHistory]});
+
+    const pp = handPoint(pCards);
+    const bp = handPoint(bCards);
+    document.getElementById('playerPoint').innerText = pp;
+    document.getElementById('bankerPoint').innerText = bp;
+
+    let result = 'T';
+    if (bp > pp) result = 'B';
+    else if (pp > bp) result = 'P';
+
+    if (lastRecommendation && lastRecommendation.side && lastRecommendation.multi > 0) {
+        const bet = lastRecommendation.multi;
+        const side = lastRecommendation.side;
+        let profit = 0;
+
+        if (side === 'B' && result === 'B') profit = bet * 0.95;
+        else if (side === 'P' && result === 'P') profit = bet;
+        else if (side === 'T' && result === 'T') profit = bet * 8;
+        else if (side!== 'T' && result!== 'T') profit = -bet;
+
+        totalProfit += profit;
+        betHistory.push({side: side, multi: bet, result: result, profit: profit});
+    }
+
+    beadResults.push(result);
+    totalHands++;
+
+    document.getElementById('playerCards').value = '';
+    document.getElementById('bankerCards').value = '';
+
+    updateDisplay();
+}
+
+function undoLast() {
+    if (history.length === 0) return;
+    const last = history.pop();
+    deckCount = last.deckCount;
+    beadResults = last.bead;
+    totalHands = last.hands;
+    totalProfit = last.profit;
+    betHistory = last.bets;
+    document.getElementById('playerPoint').innerText = '0';
+    document.getElementById('bankerPoint').innerText = '0';
+    updateDisplay();
+}
+
+function resetAll() {
+    deckCount = {'A':32,'2':32,'3':32,'4':32,'5':32,'6':32,'7':32,'8':32,'9':32,'0':128};
+    history = [];
+    beadResults = [];
+    totalHands = 0;
+    totalProfit = 0;
+    betHistory = [];
+    lastRecommendation = null;
+    document.getElementById('playerPoint').innerText = '0';
+    document.getElementById('bankerPoint').innerText = '0';
+    updateDisplay();
+}
+
+function updateDisplay() {
+    document.getElementById('runningCount').innerText = getRunningCount();
+    document.getElementById('trueCount').innerText = getTrueCount().toFixed(2);
+    document.getElementById('remainDecks').innerText = getDecksRemain().toFixed(2);
+
+    runMonteCarlo();
+    updateEV();
+    renderBeadRoad();
+    updateProfitDisplay();
+
+    const rec = getRecommendation();
+    lastRecommendation = rec;
+    const recEl = document.getElementById('recommendText');
+    recEl.innerText = rec.text;
+    recEl.className = `suggestion ${rec.cls}`;
+    document.getElementById('recommendDetail').innerHTML = rec.detail;
+}
+
+// iOS 點擊終極修復 - 事件委託
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. 強制激活 iOS 點擊系統
+    document.addEventListener('touchstart', function(){}, {passive: true});
+
+    // 2. 用事件委託接管所有點擊，不管是 button 還是 div
+    document.body.addEventListener('click', function(e) {
+        const target = e.target.closest('[onclick], button,.cell');
+        if (!target) return;
+
+        if (target.hasAttribute('onclick')) {
+            e.preventDefault();
+            const fn = target.getAttribute('onclick');
+            new Function(fn).call(target);
+        }
+    });
+
+    // 3. 防止 iOS 雙擊縮放導致的點擊失效
+    document.addEventListener('touchend', function(e) {
+        if (e.target.closest('[onclick], button,.cell')) {
+            e.preventDefault();
+        }
+    }, {passive: false});
+
+    // 4. Enter鍵支持
+    const playerInput = document.getElementById('playerCards');
+    const bankerInput = document.getElementById('bankerCards');
+
+    function handleEnter(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            calculate();
+            e.target.blur();
+        }
+    }
+
+    if (playerInput) playerInput.addEventListener('keydown', handleEnter);
+    if (bankerInput) bankerInput.addEventListener('keydown', handleEnter);
+});
+
+updateDisplay();
+</script>
+</body>
+</html>
